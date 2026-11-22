@@ -1,0 +1,3 @@
+"""Package data placeholder for the static front-end (created in Phase 0)."""
+
+from __future__ import annotations

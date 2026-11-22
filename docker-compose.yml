@@ -1,0 +1,91 @@
+# Custom MCP gateway — production-oriented Compose stack.
+#
+# Usage:
+#   cp .env.example .env          # then edit MCP_SECRET and BASE_URL
+#   docker compose up -d
+#
+# Topology: the `app` container talks to a private `redis` container over an
+# internal bridge network. Redis is deliberately NOT published to the host —
+# nothing outside this Compose project can reach it. Only the app's port 8000
+# is exposed.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: custom-mcp:latest
+    restart: unless-stopped
+    # Graceful-stop budget, sized against the app's own worst-case shutdown.
+    #
+    # Docker sends SIGTERM and, if the container is still running after
+    # `stop_grace_period`, SIGKILLs it -- which would cut off in-flight plugin
+    # writes. Shutdown runs in two sequential phases, each bounded by a *shared*
+    # budget (not per plugin), so the total does not grow with plugin count:
+    #
+    #   Phase 1 - uvicorn waits for open connections (35s):
+    #     timeout_graceful_shutdown = TOOL_TIMEOUT_SECONDS (30)
+    #     + DRAIN_MARGIN_SECONDS (5). Lets a legitimate in-flight tool call
+    #     finish before connections are force-closed, and stops an idle client
+    #     holding an SSE stream open from blocking exit forever.
+    #
+    #   Phase 2 - the lifespan shutdown (25s):
+    #     10s  MCPRouter.shutdown(): one lifespan-close budget for every
+    #          generation (READY_TIMEOUT_SECONDS). Normally ~0s here, because
+    #          phase 1 already drained or force-closed the requests.
+    #     15s  PluginManager.shutdown_all(): one teardown budget for all slugs
+    #          (3 x the 5s per-plugin `shutdown` hook bound).
+    #
+    #   Total 60s worst case, plus a 40s margin below this 100s grace period.
+    #
+    # Keep in sync with `graceful_shutdown_seconds()` in src/custom_mcp/main.py;
+    # raise both together if TOOL_TIMEOUT_SECONDS is increased.
+    stop_grace_period: 100s
+    # Base environment comes from `.env` (copy `.env.example`); the values below
+    # always win and pin the in-container topology.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MCP_SECRET: ${MCP_SECRET:-}
+      BASE_URL: ${BASE_URL:-}
+      REDIS_URL: redis://redis:6379/0
+      DATA_DIR: /data
+      HOST: 0.0.0.0
+      PORT: "8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persistent plugin packages / state survive container replacement.
+      - data:/data
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # AOF persistence: every write is fsynced once per second, so credentials
+    # and sessions survive a restart. Never publish this service's port.
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - backend
+    # NOTE: intentionally no `ports:` — Redis must not be reachable from the host.
+
+volumes:
+  data:
+  redis-data:
+
+networks:
+  backend:
+    driver: bridge

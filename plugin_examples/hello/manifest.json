@@ -1,0 +1,9 @@
+{
+  "name": "hello",
+  "display_name": "Hello",
+  "description": "Minimal example plugin: echo and add tools plus a persisted call counter.",
+  "version": "1.0.0",
+  "entry": "plugin:HelloPlugin",
+  "auth_modes": ["none"],
+  "min_core_version": "0.1.0"
+}

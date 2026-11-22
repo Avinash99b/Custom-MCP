@@ -1,0 +1,9 @@
+{
+  "name": "apikey-demo",
+  "display_name": "apikey_demo",
+  "description": "API-key example plugin: a non-secret whoami tool and an upstream fetch_item tool mapped to auth-expired or transient failures.",
+  "version": "1.0.0",
+  "entry": "plugin:ApiKeyDemoPlugin",
+  "auth_modes": ["api_key"],
+  "min_core_version": "0.1.0"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "oauth-demo",
+  "display_name": "oauth_demo",
+  "description": "OAuth 2.0 + PKCE example plugin: a sign-in URL with an S256 challenge, authorization-code token exchange, rotating refresh, and a bearer-authenticated me tool.",
+  "version": "1.0.0",
+  "entry": "plugin:OAuthDemoPlugin",
+  "auth_modes": ["oauth"],
+  "min_core_version": "0.1.0"
+}

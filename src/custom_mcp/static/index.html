@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Custom MCP</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="dashboard">
+    <header class="app-header" id="app-header">
+      <div class="brand">
+        <h1>Custom MCP</h1>
+        <p class="muted" id="session-status">Checking session&hellip;</p>
+      </div>
+      <div class="header-actions">
+        <button id="refresh-plugins" type="button" class="secondary">Refresh</button>
+        <button id="logout" type="button">Log out</button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <div id="error-banner" class="error-banner" role="alert" hidden></div>
+
+      <section class="counts" aria-label="Plugin status summary">
+        <div class="count">
+          <span class="count-value" id="count-total">0</span>
+          <span class="count-label">Total</span>
+        </div>
+        <div class="count">
+          <span class="count-value" id="count-connected">0</span>
+          <span class="count-label">Connected</span>
+        </div>
+        <div class="count">
+          <span class="count-value" id="count-not-connected">0</span>
+          <span class="count-label">Not connected</span>
+        </div>
+        <div class="count">
+          <span class="count-value" id="count-problem">0</span>
+          <span class="count-label">Errors / expired</span>
+        </div>
+        <div class="count">
+          <span class="count-value" id="count-attention">0</span>
+          <span class="count-label">Attention</span>
+        </div>
+      </section>
+
+      <p id="attention" class="attention" role="status" hidden></p>
+
+      <section class="import-bar" aria-label="Import plugin">
+        <label for="import-file">Plugin package (.zip)</label>
+        <input id="import-file" type="file" accept=".zip,application/zip" />
+        <button id="import-button" type="button">Import</button>
+      </section>
+
+      <section aria-label="Plugins">
+        <h2 class="section-title">Plugins</h2>
+        <div id="plugin-grid" class="plugin-grid"></div>
+        <p id="empty-state" class="empty-state" hidden>
+          No plugins installed yet. Import a plugin package to get started.
+        </p>
+      </section>
+
+      <section
+        class="settings"
+        id="settings-section"
+        aria-label="Backup and restore"
+      >
+        <h2 class="section-title">Settings</h2>
+
+        <div class="warning-banner" id="backup-warning" role="alert">
+          <strong>Treat every backup like a password.</strong>
+          A backup ZIP contains your plugins' stored credentials and the reserved
+          core secrets in plaintext. Store it somewhere safe and never share it.
+        </div>
+
+        <div class="settings-panel">
+          <h3>Backup</h3>
+          <p class="muted">
+            Download every installed plugin, or tick the plugins to include. With
+            none ticked, the whole install is backed up.
+          </p>
+          <div
+            id="backup-plugins"
+            class="checkbox-list"
+            aria-label="Plugins to include in the backup"
+          ></div>
+          <div class="action-row">
+            <button id="backup-download" type="button">Download backup</button>
+            <button id="backup-select-all" type="button" class="secondary">
+              Select all
+            </button>
+            <button id="backup-select-none" type="button" class="secondary">
+              Clear selection
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-panel">
+          <h3>Restore</h3>
+          <label for="restore-file">Backup ZIP (.zip)</label>
+          <input id="restore-file" type="file" accept=".zip,application/zip" />
+
+          <label for="restore-mode">Mode</label>
+          <select id="restore-mode">
+            <option value="skip">Skip plugins that already exist</option>
+            <option value="replace">Replace plugins that already exist</option>
+          </select>
+
+          <label for="restore-slugs">
+            Only these slugs (optional, comma-separated)
+          </label>
+          <input id="restore-slugs" type="text" autocomplete="off" />
+
+          <div class="action-row">
+            <button id="restore-button" type="button">Restore</button>
+          </div>
+        </div>
+
+        <div id="restore-results" class="restore-results" hidden>
+          <h3>Restore results</h3>
+          <p id="restore-summary" class="muted" role="status"></p>
+          <div id="restore-result-list" class="result-list"></div>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <dialog id="detail-dialog" class="dialog detail-dialog">
+      <div class="dialog-head">
+        <div>
+          <h2 id="detail-title">Plugin</h2>
+          <p class="muted" id="detail-slug"></p>
+        </div>
+        <button id="detail-close" type="button" class="secondary">Close</button>
+      </div>
+
+      <div class="dialog-body">
+        <p class="detail-error error" id="detail-error" role="alert" hidden></p>
+
+        <dl class="facts">
+          <dt>Status</dt>
+          <dd id="detail-status"></dd>
+          <dt>Load state</dt>
+          <dd id="detail-load-state"></dd>
+          <dt>Selected auth mode</dt>
+          <dd id="detail-auth-mode"></dd>
+          <dt>Load error</dt>
+          <dd id="detail-load-error"></dd>
+          <dt>Last error</dt>
+          <dd id="detail-last-error"></dd>
+          <dt>Installed at</dt>
+          <dd id="detail-installed"></dd>
+          <dt>Last ping</dt>
+          <dd id="detail-last-ping"></dd>
+        </dl>
+
+        <section class="detail-section">
+          <h3>Manifest</h3>
+          <dl class="facts" id="detail-manifest"></dl>
+        </section>
+
+        <section class="detail-section">
+          <h3>Endpoint</h3>
+          <div class="url-row">
+            <code id="detail-endpoint"></code>
+            <button id="detail-copy-endpoint" type="button" class="secondary">Copy</button>
+          </div>
+          <h3>OAuth callback URL</h3>
+          <div class="url-row">
+            <code id="detail-callback"></code>
+            <button id="detail-copy-callback" type="button" class="secondary">Copy</button>
+          </div>
+        </section>
+
+        <section class="detail-section">
+          <h3>Tools</h3>
+          <div id="detail-tools" class="tools"></div>
+        </section>
+
+        <section class="detail-section">
+          <h3>Credential key names</h3>
+          <ul id="detail-secrets" class="plain-list"></ul>
+        </section>
+
+        <section class="detail-section">
+          <h3>Warnings</h3>
+          <ul id="detail-warnings" class="plain-list"></ul>
+        </section>
+
+        <section class="detail-section">
+          <div class="section-head">
+            <h3>Logs</h3>
+            <button id="detail-refresh-logs" type="button" class="secondary">Refresh logs</button>
+          </div>
+          <div id="detail-logs" class="logs"></div>
+        </section>
+
+        <section class="detail-section">
+          <h3>Actions</h3>
+          <div class="action-row">
+            <button id="detail-connect" type="button">Connect</button>
+            <button id="detail-disconnect" type="button" class="secondary">Disconnect</button>
+            <button id="detail-reload" type="button" class="secondary">Reload</button>
+            <button id="detail-remove" type="button" class="danger">Remove</button>
+          </div>
+        </section>
+      </div>
+    </dialog>
+
+    <dialog id="connect-dialog" class="dialog connect-dialog">
+      <div class="dialog-head">
+        <h2>Connect plugin</h2>
+        <button id="connect-cancel" type="button" class="secondary">Cancel</button>
+      </div>
+      <form id="connect-form" class="dialog-body">
+        <label for="connect-mode">Authentication mode</label>
+        <select id="connect-mode"></select>
+
+        <div id="connect-key-field" class="connect-field" hidden>
+          <label for="connect-key">API key</label>
+          <input id="connect-key" type="password" autocomplete="off" />
+        </div>
+
+        <div id="connect-oauth-fields" class="connect-field" hidden>
+          <label for="connect-client-id">OAuth client id (optional)</label>
+          <input id="connect-client-id" type="text" autocomplete="off" />
+          <label for="connect-client-secret">OAuth client secret (optional)</label>
+          <input id="connect-client-secret" type="password" autocomplete="off" />
+          <p id="connect-info" class="muted">
+            Leave the client id blank to reuse the one already stored. Connecting
+            opens the provider sign-in page, which returns to this dashboard.
+          </p>
+        </div>
+
+        <p class="error" id="connect-error" role="alert" hidden></p>
+
+        <div class="action-row">
+          <button id="connect-submit" type="submit">Connect</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
