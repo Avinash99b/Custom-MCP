@@ -2302,3 +2302,34 @@ Final joined evidence: **1191 passed** (8 final-review regressions), Ruff clean,
 mypy clean (96 source files), **15 real-Redis**, `uv lock --check` consistent
 (104 packages), `uv build` sdist + wheel, `docker compose config -q` ok. Every
 final-review regression is mutation-verified.
+
+## Add-on: Gmail connector plugin
+
+`plugin_examples/gmail/` (manifest slug `gmail`, `auth_modes: ["oauth"]`) adds a
+real Google Gmail connector: a Google OAuth 2.0 authorization-code + PKCE flow
+and six tools — `whoami`, `list_labels`, `list_messages`, `get_message`,
+`create_draft`, and a **DESTRUCTIVE** `send_message`. Scopes
+`gmail.readonly` + `gmail.compose`; authorize
+`accounts.google.com/o/oauth2/v2/auth` (`access_type=offline`, `prompt=consent`),
+token `oauth2.googleapis.com/token` sending the core-stored
+`core.oauth_client_secret` (Google requires it on the exchange and refresh), with
+rotating refresh (new refresh token written before the new access token).
+Endpoints are env-overridable
+(`CUSTOM_MCP_GMAIL_{AUTHORIZE_URL,TOKEN_URL,API_BASE_URL}`) so tests reuse the
+loopback `MockOAuthProvider`. Tokens live only in scoped secrets; message ids are
+pattern-checked (no URL reshaping) and compose headers reject CR/LF (no header
+injection); every HTTP call goes through one `_http_request` seam.
+
+`tests/unit/test_gmail_demo.py`: **50 tests** (manifest JSON + `parse_manifest`,
+auth/tool surface, PKCE sign-in URL + S256 + TTL 600, full code exchange
+including client-secret forwarding, refresh rotation order, each tool's payload,
+upstream status → error mapping, and no-token-leak across results/logs/storage).
+The README example list was updated to include it.
+
+An end-to-end probe packaged the plugin and installed it through the **real app**
+(`create_app` + fake Redis): import **201**, `load_state=loaded`, all six tools
+listed, `status=not_connected` (an `oauth`-only plugin does not auto-connect;
+it becomes `oauth_required` after the owner connects).
+
+Joined evidence: **1241 passed** (+50 gmail), Ruff clean, mypy clean,
+**15 real-Redis**.

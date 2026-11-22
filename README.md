@@ -246,7 +246,11 @@ examples live in `plugin_examples/`:
 - [`apikey_demo`](plugin_examples/apikey_demo/README.md) — auth mode `api_key`,
   `whoami` and a key-gated `fetch_item` mapping `401` to `auth_expired`;
 - [`oauth_demo`](plugin_examples/oauth_demo/README.md) — auth mode `oauth`,
-  PKCE sign-in, token exchange and refresh rotation.
+  PKCE sign-in, token exchange and refresh rotation;
+- [`gmail`](plugin_examples/gmail/README.md) — auth mode `oauth`, a real Google
+  Gmail connector: `list_labels`/`list_messages`/`get_message` plus
+  `create_draft` and a **DESTRUCTIVE** `send_message` (scopes `gmail.readonly` +
+  `gmail.compose`).
 
 The exact SDK signatures are in [SDK_CONTRACT.md](SDK_CONTRACT.md).
 
